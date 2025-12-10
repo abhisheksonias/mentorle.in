@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,11 @@ import BasicInfo from "./components/BasicInfo";
 import ProfessionalInfo from "./components/ProfessionalInfo";
 import PastExperience from "./components/PastExperience";
 import SocialLinks from "./components/SocialLinks";
+import SaveStatus from "./components/SaveStatus";
+import ProfileProgress from "./components/ProfileProgress";
+
+// Hooks
+import { useAutosave } from "./hooks/useAutosave";
 
 // Utils
 import { uploadProfileImage, deleteProfileImage, cleanupBrokenImageUrls } from "./utils/storageUtils";
@@ -22,9 +27,9 @@ import { uploadProfileImage, deleteProfileImage, cleanupBrokenImageUrls } from "
 function MentorProfileContent() {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -45,6 +50,54 @@ function MentorProfileContent() {
     github_url: "",
     youtube: "",
     portfolio_url: ""
+  });
+
+  // Autosave function - saves form data to database
+  const saveFormData = useCallback(async (dataToSave) => {
+    if (!profile?.user_id) {
+      throw new Error("Profile not loaded");
+    }
+
+    // Validate required fields
+    if (!dataToSave.name || !dataToSave.email) {
+      throw new Error("Name and email are required");
+    }
+
+    const updateData = {
+      name: dataToSave.name,
+      email: dataToSave.email,
+      phone: dataToSave.phone,
+      bio: dataToSave.bio,
+      location: dataToSave.location,
+      current_role: dataToSave.current_role,
+      Industry: dataToSave.industry,
+      experience_years: dataToSave.experience_years ? parseInt(dataToSave.experience_years) : null,
+      expertise_area: dataToSave.expertise_area,
+      languages_spoken: dataToSave.languages_spoken,
+      past_experience: dataToSave.past_experience,
+      linkedin_url: dataToSave.linkedin_url,
+      github_url: dataToSave.github_url,
+      youtube: dataToSave.youtube,
+      portfolio_url: dataToSave.portfolio_url,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from("mentor_data")
+      .update(updateData)
+      .eq("user_id", profile.user_id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }, [profile?.user_id]);
+
+  // Setup autosave hook
+  const { saveStatus, lastSaved, error: saveError, triggerSave, isSaving } = useAutosave({
+    onSave: saveFormData,
+    data: formData,
+    debounceMs: 1500,
+    enabled: !!profile?.user_id && !isLoading
   });
 
   useEffect(() => {
@@ -135,114 +188,60 @@ function MentorProfileContent() {
     }));
   };
 
-  const handleAvatarChange = (file, url) => {
+  // Handle avatar change - upload immediately (separate from form autosave)
+  const handleAvatarChange = async (file, previewUrl) => {
     setAvatarFile(file);
-    setAvatarUrl(url);
-  };
+    setAvatarUrl(previewUrl);
 
-  const handleSave = async () => {
-    setIsSaving(true);
+    if (!file || !profile?.user_id) return;
+
+    setIsUploadingAvatar(true);
     try {
-      // Validate profile data
-      if (!profile || !profile.user_id) {
-        throw new Error("Profile data not loaded. Please refresh the page.");
+      // Delete previous image if exists
+      if (profile?.profile_url) {
+        await deleteProfileImage(profile.profile_url);
       }
 
-      // Validate required fields
-      if (!formData.name || !formData.email) {
-        throw new Error("Name and email are required fields.");
-      }
+      // Upload new image
+      const newProfileUrl = await uploadProfileImage(file, profile.user_id);
 
-      let profileUrl = profile?.profile_url || "";
-
-      // Upload new avatar if selected
-      if (avatarFile) {
-        // Delete previous image if exists
-        if (profile?.profile_url) {
-          await deleteProfileImage(profile.profile_url);
-        }
-
-        // Upload new image
-        profileUrl = await uploadProfileImage(avatarFile, profile.user_id);
-      }
-
-      // Update profile data according to table schema
-      const updateData = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        bio: formData.bio,
-        location: formData.location,
-        current_role: formData.current_role,
-        Industry: formData.industry,
-        experience_years: formData.experience_years ? parseInt(formData.experience_years) : null,
-        expertise_area: formData.expertise_area,
-        languages_spoken: formData.languages_spoken,
-        past_experience: formData.past_experience,
-        linkedin_url: formData.linkedin_url,
-        github_url: formData.github_url,
-        youtube: formData.youtube,
-        portfolio_url: formData.portfolio_url,
-        profile_url: profileUrl,
-        updated_at: new Date().toISOString()
-      };
-
-      // Update profile in database
+      // Update database with new profile URL
       const { error } = await supabase
         .from("mentor_data")
-        .update(updateData)
+        .update({ 
+          profile_url: newProfileUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq("user_id", profile.user_id);
 
-      if (error) {
-        throw new Error(`Failed to update profile: ${error.message}`);
-      }
+      if (error) throw error;
+
+      // Update local state
+      setProfile(prev => ({ ...prev, profile_url: newProfileUrl }));
+      setAvatarUrl(newProfileUrl);
+      setAvatarFile(null);
 
       toast({
         title: "Success",
-        description: "Profile updated successfully!",
+        description: "Profile picture updated!",
       });
-
-      // Refresh profile data
-      const { data: updatedProfile, error: fetchError } = await supabase
-        .from("mentor_data")
-        .select("*")
-        .eq("user_id", profile.user_id)
-        .single();
-
-      if (fetchError) {
-        console.warn("Failed to fetch updated profile:", fetchError);
-      } else {
-        setProfile(updatedProfile);
-        setFormData({
-          name: updatedProfile.name || "",
-          email: updatedProfile.email || "",
-          phone: updatedProfile.phone || "",
-          bio: updatedProfile.bio || "",
-          location: updatedProfile.location || "",
-          current_role: updatedProfile.current_role || "",
-          industry: updatedProfile.industry || "",
-          experience_years: updatedProfile.experience_years || "",
-          expertise_area: updatedProfile.expertise_area || [],
-          languages_spoken: updatedProfile.languages_spoken || [],
-          past_experience: updatedProfile.past_experience || [],
-          linkedin_url: updatedProfile.linkedin_url || "",
-          github_url: updatedProfile.github_url || "",
-          youtube: updatedProfile.youtube || "",
-          portfolio_url: updatedProfile.portfolio_url || ""
-        });
-        setAvatarUrl(updatedProfile.profile_url || "");
-      }
-
     } catch (error) {
-      console.error("Error updating profile:", error);
+      console.error("Error uploading avatar:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update profile.",
+        description: "Failed to upload profile picture.",
         variant: "destructive",
       });
+      // Revert to previous avatar
+      setAvatarUrl(profile?.profile_url || "");
     } finally {
-      setIsSaving(false);
+      setIsUploadingAvatar(false);
     }
+  };
+
+  // Manual save handler (fallback)
+  const handleManualSave = async () => {
+    triggerSave();
   };
 
   if (isLoading) {
@@ -257,27 +256,45 @@ function MentorProfileContent() {
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto p-3">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.back()}
-            className="h-10 w-10"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-            <p className="text-gray-600">Update your mentor profile information</p>
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.back()}
+              className="h-10 w-10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
+              <p className="text-gray-600">Update your mentor profile information</p>
+            </div>
+          </div>
+          
+          {/* Save Status Indicator - Below title */}
+          <div className="flex items-center gap-3 ml-14">
+            <SaveStatus 
+              status={saveStatus} 
+              lastSaved={lastSaved} 
+              error={saveError}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Column - Profile Picture */}
-          <div className="lg:col-span-1">
+          {/* Left Column - Profile Picture & Progress */}
+          <div className="lg:col-span-1 space-y-6">
             <ProfilePicture
               profileUrl={avatarUrl}
               onAvatarChange={handleAvatarChange}
+              isUploading={isUploadingAvatar}
+            />
+            
+            {/* Profile Completion Progress */}
+            <ProfileProgress 
+              formData={formData} 
+              avatarUrl={avatarUrl}
             />
           </div>
 
@@ -311,13 +328,13 @@ function MentorProfileContent() {
             {/* Save Button */}
             <div className="flex justify-end pt-6">
               <Button
-                onClick={handleSave}
+                onClick={handleManualSave}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-8 py-2"
-                size="lg"
+                variant="outline"
+                className="flex items-center gap-2 px-6 py-2"
               >
                 <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Changes"}
+                {isSaving ? "Saving..." : "Save Now"}
               </Button>
             </div>
           </div>

@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, User } from "lucide-react";
+import { Upload, User, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { validateImageFile } from "../utils/storageUtils";
 
-export default function ProfilePicture({ profileUrl, onAvatarChange }) {
+export default function ProfilePicture({ profileUrl, onAvatarChange, isUploading = false }) {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState(profileUrl || "");
   const { toast } = useToast();
@@ -77,15 +77,26 @@ export default function ProfilePicture({ profileUrl, onAvatarChange }) {
               onChange={handleAvatarUpload}
               className="hidden"
               id="avatar-upload"
+              disabled={isUploading}
             />
             <Button
               variant="outline"
               size="sm"
               onClick={() => document.getElementById('avatar-upload').click()}
+              disabled={isUploading}
               className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-300"
             >
-              <Upload className="h-4 w-4" />
-              Upload Photo
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  Upload Photo
+                </>
+              )}
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
