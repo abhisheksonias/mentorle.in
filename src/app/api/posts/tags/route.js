@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabaseServer';
 // GET - Fetch all unique tags from posts
 export async function GET() {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from('posts')
       .select('tags')

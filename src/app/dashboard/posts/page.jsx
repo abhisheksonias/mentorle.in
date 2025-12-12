@@ -34,13 +34,25 @@ export default function PostsPage() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
+      // Get access token
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const params = new URLSearchParams({
         status: statusFilter,
         page: "1",
         limit: "50",
       });
 
-      const response = await fetch(`/api/posts?${params}`);
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/posts?${params}`, { headers });
       if (!response.ok) throw new Error("Failed to fetch posts");
 
       const { data } = await response.json();
@@ -61,8 +73,21 @@ export default function PostsPage() {
     if (!confirm("Are you sure you want to delete this post?")) return;
 
     try {
+      // Get access token
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(`/api/posts/${postId}`, {
         method: "DELETE",
+        headers,
       });
 
       if (!response.ok) {
@@ -132,6 +157,7 @@ export default function PostsPage() {
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
           <option value="published">Published</option>
+          <option value="scheduled">Scheduled</option>
           <option value="pending">Pending</option>
           <option value="archived">Archived</option>
         </select>
@@ -161,12 +187,20 @@ export default function PostsPage() {
                     <CardTitle className="mb-2">{post.title}</CardTitle>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <span>
-                        {post.published_at
+                        {post.status === "scheduled" && post.published_at
+                          ? `Scheduled: ${format(new Date(post.published_at), "MMM d, yyyy h:mm a")}`
+                          : post.published_at
                           ? format(new Date(post.published_at), "MMM d, yyyy")
                           : "Not published"}
                       </span>
                       {post.reading_time_minutes && (
                         <span>{post.reading_time_minutes} min read</span>
+                      )}
+                      {post.view_count > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          {post.view_count} views
+                        </span>
                       )}
                     </div>
                   </div>
@@ -175,10 +209,13 @@ export default function PostsPage() {
                       variant={
                         post.status === "published"
                           ? "default"
+                          : post.status === "scheduled"
+                          ? "default"
                           : post.status === "draft"
                           ? "secondary"
                           : "outline"
                       }
+                      className={post.status === "scheduled" ? "bg-blue-600" : ""}
                     >
                       {post.status}
                     </Badge>

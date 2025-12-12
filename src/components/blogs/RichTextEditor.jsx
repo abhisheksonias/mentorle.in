@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-export default function RichTextEditor({ value, onChange, placeholder = "Write your post content here..." }) {
+export default function RichTextEditor({ value, onChange, onFocus, placeholder = "Write your post content here..." }) {
   const textareaRef = useRef(null);
 
   const insertText = (before, after = "", placeholder = "") => {
@@ -167,6 +167,7 @@ export default function RichTextEditor({ value, onChange, placeholder = "Write y
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
         placeholder={placeholder}
         rows={15}
         className="font-mono text-sm"

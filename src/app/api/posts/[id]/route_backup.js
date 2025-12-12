@@ -16,24 +16,9 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
 
     // Get current user for role check
-    let userId = null;
-    let userRole = null;
-    
     const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.user) {
-      userId = session.user.id;
-    } else {
-      // Try Authorization header
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        if (user && !error) {
-          userId = user.id;
-        }
-      }
-    }
+    const userId = session?.user?.id;
+    let userRole = null;
 
     if (userId) {
       userRole = await getUserRole(userId, supabase);
@@ -53,7 +38,6 @@ export async function GET(request) {
         featured,
         cover_url,
         reading_time_minutes,
-        view_count,
         published_at,
         created_at,
         updated_at,

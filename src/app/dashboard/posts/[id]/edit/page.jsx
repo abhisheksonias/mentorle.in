@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useUserRole } from "@/lib/userRole";
 import { ROLES } from "@/lib/roles";
 import PostEditor from "@/components/blogs/PostEditor";
+import PostAnalytics from "@/components/blogs/PostAnalytics";
 
 export default function EditPostPage() {
   const router = useRouter();
@@ -25,7 +26,19 @@ export default function EditPostPage() {
 
   const fetchPost = async () => {
     try {
-      const response = await fetch(`/api/posts/${params.id}`);
+      // Get access token
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/posts/${params.id}`, { headers });
       if (!response.ok) {
         if (response.status === 404) {
           router.push("/dashboard/posts");
@@ -56,9 +69,22 @@ export default function EditPostPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <h1 className="text-3xl font-bold mb-6">Edit Post</h1>
-      <PostEditor post={post} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Editor Section */}
+        <div className="lg:col-span-2">
+          <PostEditor post={post} />
+        </div>
+        
+        {/* Analytics Section */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6">
+            <PostAnalytics postId={post.id} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

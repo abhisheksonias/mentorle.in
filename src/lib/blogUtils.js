@@ -54,11 +54,20 @@ export function validatePostData(postData) {
     errors.push("Title must be at least 3 characters");
   }
 
-  if (!postData.content || postData.content.trim().length < 50) {
-    errors.push("Content must be at least 50 characters");
+  // For drafts, allow empty or short content
+  // For published and scheduled posts, require at least 50 characters
+  if (postData.status === 'published' || postData.status === 'scheduled') {
+    if (!postData.content || postData.content.trim().length < 50) {
+      errors.push(`Content must be at least 50 characters for ${postData.status} posts`);
+    }
+  } else {
+    // For drafts, just check if content exists (can be empty)
+    if (postData.content === undefined || postData.content === null) {
+      errors.push("Content field is required");
+    }
   }
 
-  if (postData.status && !["draft", "published", "archived", "pending"].includes(postData.status)) {
+  if (postData.status && !["draft", "published", "scheduled", "archived", "pending"].includes(postData.status)) {
     errors.push("Invalid status");
   }
 

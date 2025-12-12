@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from '@/lib/supabaseServer';
 // GET - Fetch a single post by slug
 export async function GET(request, { params }) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { slug } = params;
 
     const { data: { session } } = await supabase.auth.getSession();

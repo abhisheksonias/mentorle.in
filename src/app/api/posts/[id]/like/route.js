@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabaseServer';
 // POST - Toggle like on a post
 export async function POST(request, { params }) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { id: postId } = params;
     const { data: { session } } = await supabase.auth.getSession();
 

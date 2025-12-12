@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabaseServer';
 // GET - Fetch comments for a post
 export async function GET(request, { params }) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { id: postId } = params;
 
     const { data, error } = await supabase
@@ -91,7 +91,7 @@ export async function GET(request, { params }) {
 // POST - Create a new comment
 export async function POST(request, { params }) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { id: postId } = params;
     const { data: { session } } = await supabase.auth.getSession();
 

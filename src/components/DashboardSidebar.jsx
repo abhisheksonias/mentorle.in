@@ -66,6 +66,11 @@ function DashboardSidebar() {
                 href: "/dashboard/mentor/profile",
             },
             {
+                icon: Calendar,
+                label: "My Events",
+                href: "/dashboard/mentor/events",
+            },
+            {
                 icon: PenTool,
                 label: "Posts",
                 href: "/dashboard/posts",
@@ -76,6 +81,11 @@ function DashboardSidebar() {
                 icon: User,
                 label: "Profile",
                 href: "/dashboard/mentor/profile",
+            },
+            {
+                icon: Calendar,
+                label: "My Events",
+                href: "/dashboard/mentor/events",
             },
         ],
         mentee: [       
