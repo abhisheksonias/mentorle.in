@@ -16,6 +16,7 @@ import {
   ArrowLeft, Calendar, Clock, User, Video, IndianRupee,
   Check, X, MessageSquare, Star
 } from "lucide-react";
+import FeedbackSection from "@/components/feedback/FeedbackSection";
 
 function BookingDetailContent() {
   const router = useRouter();
@@ -311,6 +312,13 @@ function BookingDetailContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Feedback Section */}
+      {booking.status === "completed" && (
+        <div className="mt-8">
+          <FeedbackSection feedbackType="booking" referenceId={booking.id} />
+        </div>
+      )}
 
       {/* Actions */}
       <div className="mt-8 flex flex-wrap gap-3">

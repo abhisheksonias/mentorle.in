@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import CommentSection from "@/components/blogs/CommentSection";
 import LikeButton from "@/components/blogs/LikeButton";
 import TagList from "@/components/blogs/TagList";
+import FeedbackSection from "@/components/feedback/FeedbackSection";
 import { supabase } from "@/lib/supabase";
 
 export default function BlogPostPage() {
@@ -183,7 +184,8 @@ export default function BlogPostPage() {
           <div className="whitespace-pre-wrap">{post.content}</div>
         </div>
 
-        <footer className="border-t pt-8">
+        <footer className="border-t pt-8 space-y-8">
+          <FeedbackSection feedbackType="article" referenceId={post.id} />
           <CommentSection postId={post.id} />
         </footer>
       </article>

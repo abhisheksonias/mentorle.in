@@ -15,6 +15,7 @@ import {
     PenTool,
     Briefcase,
     CalendarCheck,
+    MessageCircle,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUserRole } from "@/lib/userRole";
@@ -86,6 +87,11 @@ function DashboardSidebar() {
                 icon: CalendarCheck,
                 label: "Bookings",
                 href: "/dashboard/bookings",
+            },
+            {
+                icon: MessageCircle,
+                label: "Feedback",
+                href: "/dashboard/feedback",
             },
             {
                 icon: Calendar,
