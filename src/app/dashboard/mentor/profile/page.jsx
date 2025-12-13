@@ -17,6 +17,7 @@ import PastExperience from "./components/PastExperience";
 import SocialLinks from "./components/SocialLinks";
 import SaveStatus from "./components/SaveStatus";
 import ProfileProgress from "./components/ProfileProgress";
+import AvailabilityGrid from "./components/AvailabilityGrid";
 
 // Hooks
 import { useAutosave } from "./hooks/useAutosave";
@@ -324,6 +325,9 @@ function MentorProfileContent() {
               formData={formData}
               onInputChange={handleInputChange}
             />
+
+            {/* Availability */}
+            <AvailabilityGrid userId={profile?.user_id} />
 
             {/* Save Button */}
             <div className="flex justify-end pt-6">
