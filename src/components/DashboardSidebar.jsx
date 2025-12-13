@@ -13,6 +13,8 @@ import {
     FileText,
     Crown,
     PenTool,
+    Briefcase,
+    CalendarCheck,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUserRole } from "@/lib/userRole";
@@ -37,6 +39,16 @@ function DashboardSidebar() {
                 icon: Crown,
                 label: "User Subscriptions",
                 href: "/dashboard/admin/subscriptions",
+            },
+            {
+                icon: Briefcase,
+                label: "Offerings",
+                href: "/dashboard/offerings",
+            },
+            {
+                icon: CalendarCheck,
+                label: "Bookings",
+                href: "/dashboard/bookings",
             },
             {
                 icon: FileText,
@@ -66,6 +78,16 @@ function DashboardSidebar() {
                 href: "/dashboard/mentor/profile",
             },
             {
+                icon: Briefcase,
+                label: "Offerings",
+                href: "/dashboard/offerings",
+            },
+            {
+                icon: CalendarCheck,
+                label: "Bookings",
+                href: "/dashboard/bookings",
+            },
+            {
                 icon: Calendar,
                 label: "My Events",
                 href: "/dashboard/mentor/events",
@@ -93,6 +115,16 @@ function DashboardSidebar() {
                 icon: Search,
                 label: "Find Mentor",
                 href: "/dashboard/mentee/findmentor",
+            },
+            {
+                icon: Briefcase,
+                label: "Book Session",
+                href: "/dashboard/mentee/book",
+            },
+            {
+                icon: CalendarCheck,
+                label: "My Bookings",
+                href: "/dashboard/mentee/bookings",
             },
             {
                 icon: Calendar,
