@@ -114,7 +114,8 @@ export default function BookingModal({ offering, mentorAvailability, onClose, on
       const [hours, minutes] = selectedTime.split(':').map(Number);
       scheduledAt.setHours(hours, minutes, 0, 0);
 
-      const response = await fetch("/api/bookings", {
+      // Step 1: Create booking
+      const bookingResponse = await fetch("/api/bookings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -128,21 +129,61 @@ export default function BookingModal({ offering, mentorAvailability, onClose, on
         })
       });
 
-      const result = await response.json();
+      const bookingResult = await bookingResponse.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to book session");
+      if (!bookingResponse.ok) {
+        throw new Error(bookingResult.error || "Failed to book session");
       }
 
-      toast({
-        title: "Booked!",
-        description: "Your session has been booked successfully",
-      });
+      const booking = bookingResult.data;
 
-      if (onSuccess) {
-        onSuccess(result.data);
+      // Step 2: Handle payment if required
+      if (offering.price > 0 && booking.payment_status === 'pending') {
+        // Create payment order
+        const paymentResponse = await fetch("/api/payments/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            booking_id: booking.id,
+            amount: offering.price,
+            currency: offering.currency || 'INR'
+          })
+        });
+
+        const paymentResult = await paymentResponse.json();
+
+        if (!paymentResponse.ok) {
+          throw new Error(paymentResult.error || "Failed to create payment order");
+        }
+
+        // Redirect to payment page with booking details
+        if (onSuccess) {
+          onSuccess({ 
+            booking, 
+            payment: paymentResult,
+            requiresPayment: true 
+          });
+        }
+        onClose();
+        
+        // Navigate to payment confirmation page
+        const router = (await import("next/navigation")).useRouter();
+        window.location.href = `/dashboard/mentee/bookings/${booking.id}/payment?order_id=${paymentResult.order_id}`;
+      } else {
+        // Free session - booking confirmed
+        toast({
+          title: "Booked!",
+          description: "Your session has been booked successfully",
+        });
+
+        if (onSuccess) {
+          onSuccess({ booking, requiresPayment: false });
+        }
+        onClose();
       }
-      onClose();
     } catch (error) {
       console.error("Error booking session:", error);
       toast({

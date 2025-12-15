@@ -11,22 +11,51 @@ export function filterMentors(mentors, filters) {
     selectedIndustry,
     selectedExpertise,
     experienceRange,
-    selectedLocation
+    selectedLocation,
+    priceRange,
+    selectedLanguage,
+    selectedSessionType,
+    hasAvailability,
+    showFavorites,
+    favoriteMentorIds
   } = filters;
   
   let filtered = [...mentors];
 
-  // Search term filter
+  // Enhanced search term filter (name, skill/topic, role, company)
   if (searchTerm) {
-    filtered = filtered.filter(mentor => 
-      mentor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.Industry?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (Array.isArray(mentor.expertise_area) 
-        ? mentor.expertise_area.some(area => area.toLowerCase().includes(searchTerm.toLowerCase()))
-        : mentor.expertise_area?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
+    const searchLower = searchTerm.toLowerCase();
+    filtered = filtered.filter(mentor => {
+      // Search in name
+      const nameMatch = mentor.name?.toLowerCase().includes(searchLower) ||
+                       `${mentor.first_name || ''} ${mentor.last_name || ''}`.toLowerCase().includes(searchLower);
+      
+      // Search in industry
+      const industryMatch = mentor.Industry?.toLowerCase().includes(searchLower);
+      
+      // Search in bio
+      const bioMatch = mentor.bio?.toLowerCase().includes(searchLower);
+      
+      // Search in expertise/skills
+      const expertiseMatch = Array.isArray(mentor.expertise_area) 
+        ? mentor.expertise_area.some(area => area.toLowerCase().includes(searchLower))
+        : mentor.expertise_area?.toLowerCase().includes(searchLower);
+      
+      // Search in role
+      const roleMatch = mentor.current_role?.toLowerCase().includes(searchLower);
+      
+      // Search in company (from past_experience)
+      const companyMatch = mentor.past_experience?.some(exp => 
+        exp.company?.toLowerCase().includes(searchLower)
+      ) || false;
+      
+      // Search in skills (if available)
+      const skillsMatch = Array.isArray(mentor.skills)
+        ? mentor.skills.some(skill => skill.toLowerCase().includes(searchLower))
+        : false;
+      
+      return nameMatch || industryMatch || bioMatch || expertiseMatch || roleMatch || companyMatch || skillsMatch;
+    });
   }
 
   // Industry filter
@@ -65,6 +94,66 @@ export function filterMentors(mentors, filters) {
     filtered = filtered.filter(mentor => mentor.location === selectedLocation);
   }
 
+  // Price range filter (based on offerings)
+  if (priceRange) {
+    filtered = filtered.filter(mentor => {
+      // This will be enhanced when we fetch offerings with mentors
+      // For now, we'll check if mentor has offerings in the price range
+      const minPrice = priceRange === "free" ? 0 : 
+                      priceRange === "0-500" ? 0 : 
+                      priceRange === "500-1000" ? 500 : 
+                      priceRange === "1000-2000" ? 1000 : 
+                      priceRange === "2000+" ? 2000 : 0;
+      const maxPrice = priceRange === "free" ? 0 : 
+                      priceRange === "0-500" ? 500 : 
+                      priceRange === "500-1000" ? 1000 : 
+                      priceRange === "1000-2000" ? 2000 : 
+                      priceRange === "2000+" ? Infinity : Infinity;
+      
+      // If mentor has price info in their data, use it
+      // Otherwise, we'll need to check offerings separately
+      return true; // Placeholder - will be enhanced with offerings data
+    });
+  }
+
+  // Language filter
+  if (selectedLanguage) {
+    filtered = filtered.filter(mentor => {
+      const languages = Array.isArray(mentor.languages) ? mentor.languages : 
+                       mentor.languages ? [mentor.languages] : [];
+      return languages.some(lang => lang.toLowerCase() === selectedLanguage.toLowerCase());
+    });
+  }
+
+  // Session type filter (based on offerings)
+  if (selectedSessionType) {
+    // This will be enhanced when we fetch offerings with mentors
+    // For now, return all (will be filtered by offerings data)
+    return filtered;
+  }
+
+  // Availability filter
+  if (hasAvailability) {
+    // Check if mentor has availability set up
+    filtered = filtered.filter(mentor => {
+      // Check if mentor has availability in their profile
+      return mentor.use_profile_availability !== false; // Placeholder
+    });
+  }
+
+  // Favorites filter - only show mentors that are in the favorites list
+  if (showFavorites) {
+    if (!favoriteMentorIds || favoriteMentorIds.length === 0) {
+      // If filter is on but no favorites, return empty array
+      return [];
+    }
+    filtered = filtered.filter(mentor => {
+      // Check if mentor's user_id is in the favorites list
+      const isFavorite = favoriteMentorIds.includes(mentor.user_id);
+      return isFavorite;
+    });
+  }
+
   return filtered;
 }
 
@@ -92,9 +181,35 @@ export function extractFilterOptions(mentorData) {
   // Extract unique locations
   const locations = [...new Set(mentorData.map(m => m.location).filter(Boolean))];
 
+  // Extract unique languages
+  const allLanguages = mentorData.flatMap(mentor => {
+    if (Array.isArray(mentor.languages)) {
+      return mentor.languages;
+    } else if (mentor.languages) {
+      return [mentor.languages];
+    }
+    return [];
+  });
+  const languages = [...new Set(allLanguages)];
+
+  // Extract unique roles
+  const roles = [...new Set(mentorData.map(m => m.current_role).filter(Boolean))];
+
+  // Extract unique companies (from past_experience)
+  const allCompanies = mentorData.flatMap(mentor => {
+    if (Array.isArray(mentor.past_experience)) {
+      return mentor.past_experience.map(exp => exp.company).filter(Boolean);
+    }
+    return [];
+  });
+  const companies = [...new Set(allCompanies)];
+
   return {
     industries,
     expertiseAreas,
-    locations
+    locations,
+    languages,
+    roles,
+    companies
   };
 }

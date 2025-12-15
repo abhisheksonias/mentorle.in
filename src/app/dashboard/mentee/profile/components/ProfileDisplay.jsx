@@ -10,8 +10,14 @@ import {
   Clock,
   Building,
   FileText,
-  Lightbulb
+  Lightbulb,
+  Globe,
+  Briefcase,
+  Languages,
+  Code,
+  Download
 } from "lucide-react";
+import Image from "next/image";
 
 export default function ProfileDisplay({ profile }) {
   const formatArrayField = (field) => {
@@ -30,6 +36,26 @@ export default function ProfileDisplay({ profile }) {
 
   return (
     <div className="space-y-6">
+      {/* Profile Photo */}
+      {profile?.profile_url && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-300">
+              <Image
+                src={profile.profile_url}
+                alt="Profile"
+                width={96}
+                height={96}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{profile?.name || "User"}</h2>
+              <p className="text-gray-600">{profile?.current_status || "Current Status"}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Completion */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -258,6 +284,144 @@ export default function ProfileDisplay({ profile }) {
         </div>
       )}
 
+      {/* Languages */}
+      {profile?.languages && Array.isArray(profile.languages) && profile.languages.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Languages className="h-5 w-5 text-green-600" />
+            Languages
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.languages.map((lang, index) => (
+              <span
+                key={index}
+                className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium"
+              >
+                {lang}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Skills */}
+      {profile?.skills && Array.isArray(profile.skills) && profile.skills.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Code className="h-5 w-5 text-purple-600" />
+            Skills
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.skills.map((skill, index) => (
+              <span
+                key={index}
+                className="inline-block bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Work Background */}
+      {profile?.work_background && (profile.work_background.company || profile.work_background.position) && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-orange-600" />
+            Work Background
+          </h2>
+          <div className="bg-orange-50 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {profile.work_background.company && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <div className="text-gray-900">{profile.work_background.company}</div>
+                </div>
+              )}
+              {profile.work_background.position && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                  <div className="text-gray-900">{profile.work_background.position}</div>
+                </div>
+              )}
+              {(profile.work_background.start_date || profile.work_background.end_date) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <div className="text-gray-900">
+                    {profile.work_background.start_date ? formatDate(profile.work_background.start_date) : "N/A"}
+                    {" - "}
+                    {profile.work_background.end_date ? formatDate(profile.work_background.end_date) : "Present"}
+                  </div>
+                </div>
+              )}
+              {profile.work_background.description && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <div className="text-gray-900 whitespace-pre-wrap">{profile.work_background.description}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preferences */}
+      {profile?.preferences && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Mentorship Preferences</h2>
+          {profile.preferences.mentor_qualities && profile.preferences.mentor_qualities.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Mentor Qualities</label>
+              <div className="flex flex-wrap gap-2">
+                {profile.preferences.mentor_qualities.map((quality, index) => (
+                  <span
+                    key={index}
+                    className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm"
+                  >
+                    {quality}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {profile.preferences.session_type && profile.preferences.session_type.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Session Types</label>
+              <div className="flex flex-wrap gap-2">
+                {profile.preferences.session_type.map((type, index) => (
+                  <span
+                    key={index}
+                    className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm"
+                  >
+                    {type}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {profile.preferences.preferred_time_windows && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time Windows</label>
+              <div className="flex flex-wrap gap-2">
+                {profile.preferences.preferred_time_windows.morning && (
+                  <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">Morning</span>
+                )}
+                {profile.preferences.preferred_time_windows.afternoon && (
+                  <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">Afternoon</span>
+                )}
+                {profile.preferences.preferred_time_windows.evening && (
+                  <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">Evening</span>
+                )}
+                {profile.preferences.preferred_time_windows.weekend && (
+                  <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">Weekend</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Account Information */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -291,15 +455,34 @@ export default function ProfileDisplay({ profile }) {
         </div>
       </div>
 
-      {/* Social Media Links */}
-      {(profile?.linkedin_url || profile?.github_url || profile?.instagram_url) && (
+      {/* Resume */}
+      {profile?.resume_url && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-purple-600">🌐</span>
-            Social Media Links
+            <FileText className="h-5 w-5 text-gray-600" />
+            Resume
+          </h2>
+          <a
+            href={profile.resume_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Download Resume
+          </a>
+        </div>
+      )}
+
+      {/* Social Media & Portfolio Links */}
+      {(profile?.linkedin_url || profile?.github_url || profile?.instagram_url || profile?.portfolio_url) && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Globe className="h-5 w-5 text-purple-600" />
+            Links
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {profile?.linkedin_url && (
               <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
@@ -352,6 +535,25 @@ export default function ProfileDisplay({ profile }) {
                     className="text-pink-600 hover:text-pink-800 text-sm truncate block"
                   >
                     View Profile
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {profile?.portfolio_url && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="w-8 h-8 bg-gray-800 rounded flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700">Portfolio</p>
+                  <a
+                    href={profile.portfolio_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-600 hover:text-gray-800 text-sm truncate block"
+                  >
+                    View Portfolio
                   </a>
                 </div>
               </div>

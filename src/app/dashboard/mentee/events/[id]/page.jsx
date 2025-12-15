@@ -106,10 +106,28 @@ export default function MenteeEventDetailPage() {
   };
 
   const isRegistrationOpen = () => {
-    if (!event?.registration_deadline) return true;
+    if (!event) return false;
+    
     const now = new Date();
-    const deadline = new Date(event.registration_deadline);
-    return now <= deadline;
+    
+    // Check if event is completed
+    if (event.end_date) {
+      const endDate = new Date(event.end_date);
+      if (endDate < now) return false;
+    } else if (event.start_date) {
+      const startDate = new Date(event.start_date);
+      // If no end date, consider it completed if start date has passed significantly (more than 1 day)
+      const oneDayAfter = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+      if (oneDayAfter < now) return false;
+    }
+    
+    // Check if registration deadline has passed
+    if (event.registration_deadline) {
+      const deadline = new Date(event.registration_deadline);
+      if (deadline < now) return false;
+    }
+    
+    return true;
   };
 
   const getEventTypeColor = (type) => {
@@ -135,6 +153,12 @@ export default function MenteeEventDetailPage() {
   };
 
   const handleRegisterClick = () => {
+    // Check if registration is closed
+    if (!isRegistrationOpen()) {
+      alert("Registrations are closed. The registration deadline has passed or the event has been completed.");
+      return;
+    }
+
     if (!user) {
       router.push("/login");
     } else if (event.registration_link) {

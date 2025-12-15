@@ -17,16 +17,26 @@ export default function FindMentorPage() {
   const [selectedExpertise, setSelectedExpertise] = useState("");
   const [experienceRange, setExperienceRange] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
+  const [priceRange, setPriceRange] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [selectedSessionType, setSelectedSessionType] = useState("");
+  const [hasAvailability, setHasAvailability] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [showRecommended, setShowRecommended] = useState(false);
+  const [favoriteMentorIds, setFavoriteMentorIds] = useState([]);
 
   // Filter options (will be populated from mentor data)
   const [industries, setIndustries] = useState([]);
   const [expertiseAreas, setExpertiseAreas] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [languages, setLanguages] = useState([]);
 
-  const hasActiveFilters = searchTerm || selectedIndustry || selectedExpertise || experienceRange || selectedLocation;
+  const hasActiveFilters = searchTerm || selectedIndustry || selectedExpertise || experienceRange || 
+    selectedLocation || priceRange || selectedLanguage || selectedSessionType || hasAvailability || showFavorites;
 
   useEffect(() => {
     fetchMentors();
+    fetchFavorites();
   }, []);
 
   // Apply filters whenever filter states change
@@ -36,12 +46,19 @@ export default function FindMentorPage() {
       selectedIndustry,
       selectedExpertise,
       experienceRange,
-      selectedLocation
+      selectedLocation,
+      priceRange,
+      selectedLanguage,
+      selectedSessionType,
+      hasAvailability,
+      showFavorites,
+      favoriteMentorIds
     };
     
     const filtered = filterMentors(mentors, filters);
     setFilteredMentors(filtered);
-  }, [mentors, searchTerm, selectedIndustry, selectedExpertise, experienceRange, selectedLocation]);
+  }, [mentors, searchTerm, selectedIndustry, selectedExpertise, experienceRange, selectedLocation, 
+      priceRange, selectedLanguage, selectedSessionType, hasAvailability, showFavorites, favoriteMentorIds]);
 
   const fetchMentors = async () => {
     try {
@@ -98,6 +115,7 @@ export default function FindMentorPage() {
         setIndustries(options.industries);
         setExpertiseAreas(options.expertiseAreas);
         setLocations(options.locations);
+        setLanguages(options.languages || []);
       } else {
         setMentors([]);
         setFilteredMentors([]);
@@ -111,12 +129,91 @@ export default function FindMentorPage() {
     }
   };
 
+  const fetchFavorites = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log("No session found, skipping favorites fetch");
+        setFavoriteMentorIds([]);
+        return;
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`
+      };
+
+      console.log("Fetching favorites for user:", session.user.id);
+      const response = await fetch(`/api/favorites?mentee_id=${session.user.id}`, { headers });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const favorites = result.data || [];
+        const mentorIds = favorites.map(f => f.mentor_id).filter(Boolean);
+        console.log("Fetched favorites successfully:", mentorIds.length, "favorites");
+        setFavoriteMentorIds(mentorIds);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to fetch favorites:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        setFavoriteMentorIds([]);
+      }
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      setFavoriteMentorIds([]);
+    }
+  };
+
   const clearAllFilters = () => {
     setSearchTerm("");
     setSelectedIndustry("");
     setSelectedExpertise("");
     setExperienceRange("");
     setSelectedLocation("");
+    setPriceRange("");
+    setSelectedLanguage("");
+    setSelectedSessionType("");
+    setHasAvailability(false);
+    setShowFavorites(false);
+  };
+
+  // Fetch recommended mentors based on mentee profile
+  const fetchRecommendedMentors = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      // Get mentee profile
+      const { data: menteeProfile } = await supabase
+        .from("mentee_data")
+        .select("interests, preferred_industries, skills, languages")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (!menteeProfile) return [];
+
+      // Find mentors matching mentee preferences
+      let recommendedQuery = supabase
+        .from("mentor_data")
+        .select("*")
+        .eq("status", "approved");
+
+      // Match by interests/expertise
+      if (menteeProfile.interests && menteeProfile.interests.length > 0) {
+        // This is a simplified matching - in production, you'd want more sophisticated matching
+        recommendedQuery = recommendedQuery.contains("expertise_area", menteeProfile.interests.slice(0, 3));
+      }
+
+      const { data: recommended } = await recommendedQuery.limit(6);
+
+      return recommended || [];
+    } catch (error) {
+      console.error("Error fetching recommended mentors:", error);
+      return [];
+    }
   };
 
   return (
@@ -131,6 +228,25 @@ export default function FindMentorPage() {
         </p>
       </div>
 
+      {/* Recommended Section */}
+      {!hasActiveFilters && (
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Recommended for You</h2>
+          <button
+            onClick={async () => {
+              const recommended = await fetchRecommendedMentors();
+              if (recommended.length > 0) {
+                setFilteredMentors(recommended);
+                setShowRecommended(true);
+              }
+            }}
+            className="text-sm text-gray-600 hover:text-black underline"
+          >
+            Show Recommendations
+          </button>
+        </div>
+      )}
+
       {/* Search and Filter Section */}
       <FilterBar
         searchTerm={searchTerm}
@@ -143,9 +259,20 @@ export default function FindMentorPage() {
         setExperienceRange={setExperienceRange}
         selectedLocation={selectedLocation}
         setSelectedLocation={setSelectedLocation}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
+        selectedLanguage={selectedLanguage}
+        setSelectedLanguage={setSelectedLanguage}
+        selectedSessionType={selectedSessionType}
+        setSelectedSessionType={setSelectedSessionType}
+        hasAvailability={hasAvailability}
+        setHasAvailability={setHasAvailability}
+        showFavorites={showFavorites}
+        setShowFavorites={setShowFavorites}
         industries={industries}
         expertiseAreas={expertiseAreas}
         locations={locations}
+        languages={languages}
         clearAllFilters={clearAllFilters}
       />
 
@@ -161,6 +288,16 @@ export default function FindMentorPage() {
         setExperienceRange={setExperienceRange}
         selectedLocation={selectedLocation}
         setSelectedLocation={setSelectedLocation}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
+        selectedLanguage={selectedLanguage}
+        setSelectedLanguage={setSelectedLanguage}
+        selectedSessionType={selectedSessionType}
+        setSelectedSessionType={setSelectedSessionType}
+        hasAvailability={hasAvailability}
+        setHasAvailability={setHasAvailability}
+        showFavorites={showFavorites}
+        setShowFavorites={setShowFavorites}
         hasActiveFilters={hasActiveFilters}
       />
 
@@ -178,6 +315,8 @@ export default function FindMentorPage() {
         loading={loading}
         hasActiveFilters={hasActiveFilters}
         clearAllFilters={clearAllFilters}
+        onFavoriteChange={fetchFavorites}
+        favoriteMentorIds={favoriteMentorIds}
       />
     </div>
   );

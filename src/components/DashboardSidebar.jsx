@@ -143,6 +143,11 @@ function DashboardSidebar() {
                 href: "/dashboard/mentee/events",
             },
             {
+                icon: CalendarCheck,
+                label: "Registered Events",
+                href: "/dashboard/mentee/registered-events",
+            },
+            {
                 icon: FileText,
                 label: "Resources",
                 href: "/dashboard/mentee/resources",

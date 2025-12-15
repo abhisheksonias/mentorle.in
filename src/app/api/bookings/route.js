@@ -133,20 +133,60 @@ export async function GET(request) {
 // POST - Create new booking
 export async function POST(request) {
   try {
-    const supabase = await createServerSupabaseClient();
+    let supabase = await createServerSupabaseClient();
     
     // Get authenticated user (mentee)
     let userId = null;
+    let accessToken = null;
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session?.user) {
       userId = session.user.id;
+      accessToken = session.access_token;
     } else {
       const authHeader = request.headers.get('authorization');
       if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        if (user && !error) userId = user.id;
+        accessToken = authHeader.substring(7);
+      }
+      
+      // When using a bearer token without a Next.js session, rebuild the client with the token
+      if (accessToken) {
+        const { createClient } = require('@supabase/supabase-js');
+        supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${accessToken}`
+              }
+            },
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false
+            }
+          }
+        );
+        
+        // Try to get user; if network issues, decode from JWT as fallback
+        try {
+          const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+          if (user && !error) {
+            userId = user.id;
+          }
+        } catch (err) {
+          // Fallback: decode JWT to extract user id (sub)
+          try {
+            const [, payload] = accessToken.split('.');
+            const decoded = JSON.parse(Buffer.from(payload, 'base64').toString());
+            if (decoded?.sub) {
+              userId = decoded.sub;
+            }
+          } catch (decodeErr) {
+            console.warn('Unable to decode access token for user id', decodeErr);
+          }
+        }
       }
     }
 

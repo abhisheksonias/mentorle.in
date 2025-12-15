@@ -6,7 +6,9 @@ export default function MentorsList({
   mentors,
   loading,
   hasActiveFilters,
-  clearAllFilters
+  clearAllFilters,
+  onFavoriteChange,
+  favoriteMentorIds = []
 }) {
   if (loading) {
     return (
@@ -46,18 +48,23 @@ export default function MentorsList({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {mentors.map((mentor, index) => (
-        <MentorCard
-          key={mentor.user_id || `mentor-${index}`}
-          Name={mentor.name || `${mentor.first_name || ''} ${mentor.last_name || ''}`.trim()}
-          Industry={mentor.Industry}
-          experience_years={mentor.experience_years}
-          expertise_area={mentor.expertise_area}
-          ImageUrl={mentor.ImageUrl || mentor.profile_url}
-          mentorData={mentor}
-          location={mentor.location}
-        />
-      ))}
+      {mentors.map((mentor, index) => {
+        const isFavorite = favoriteMentorIds.includes(mentor.user_id);
+        return (
+          <MentorCard
+            key={mentor.user_id || `mentor-${index}`}
+            Name={mentor.name || `${mentor.first_name || ''} ${mentor.last_name || ''}`.trim()}
+            Industry={mentor.Industry}
+            experience_years={mentor.experience_years}
+            expertise_area={mentor.expertise_area}
+            ImageUrl={mentor.ImageUrl || mentor.profile_url}
+            mentorData={mentor}
+            location={mentor.location}
+            onFavoriteChange={onFavoriteChange}
+            isFavorite={isFavorite}
+          />
+        );
+      })}
     </div>
   );
 }

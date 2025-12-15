@@ -12,6 +12,16 @@ export default function FilterTags({
   setExperienceRange,
   selectedLocation,
   setSelectedLocation,
+  priceRange,
+  setPriceRange,
+  selectedLanguage,
+  setSelectedLanguage,
+  selectedSessionType,
+  setSelectedSessionType,
+  hasAvailability,
+  setHasAvailability,
+  showFavorites,
+  setShowFavorites,
   hasActiveFilters
 }) {
   if (!hasActiveFilters) {
@@ -52,6 +62,41 @@ export default function FilterTags({
         <span className="inline-flex items-center gap-1 bg-gray-500 text-white px-3 py-1 rounded-full text-sm">
           {selectedLocation}
           <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedLocation("")} />
+        </span>
+      )}
+
+      {priceRange && (
+        <span className="inline-flex items-center gap-1 bg-gray-400 text-white px-3 py-1 rounded-full text-sm">
+          Price: {priceRange === "free" ? "Free" : priceRange === "0-500" ? "₹0-₹500" : priceRange === "500-1000" ? "₹500-₹1K" : priceRange === "1000-2000" ? "₹1K-₹2K" : "₹2K+"}
+          <X className="h-3 w-3 cursor-pointer" onClick={() => setPriceRange("")} />
+        </span>
+      )}
+
+      {selectedLanguage && (
+        <span className="inline-flex items-center gap-1 bg-gray-400 text-white px-3 py-1 rounded-full text-sm">
+          {selectedLanguage}
+          <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedLanguage("")} />
+        </span>
+      )}
+
+      {selectedSessionType && (
+        <span className="inline-flex items-center gap-1 bg-gray-400 text-white px-3 py-1 rounded-full text-sm">
+          {selectedSessionType}
+          <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedSessionType("")} />
+        </span>
+      )}
+
+      {hasAvailability && (
+        <span className="inline-flex items-center gap-1 bg-gray-400 text-white px-3 py-1 rounded-full text-sm">
+          Available Now
+          <X className="h-3 w-3 cursor-pointer" onClick={() => setHasAvailability(false)} />
+        </span>
+      )}
+
+      {showFavorites && (
+        <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-sm">
+          Favorites Only
+          <X className="h-3 w-3 cursor-pointer" onClick={() => setShowFavorites(false)} />
         </span>
       )}
     </div>

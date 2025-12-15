@@ -203,6 +203,63 @@ export async function PATCH(request, { params }) {
       updateData.mentor_notes = body.mentor_notes;
     }
 
+    // Handle rescheduling (mentee or mentor, only for pending/confirmed bookings)
+    if (body.scheduled_at && (isMentee || isMentor)) {
+      if (!['pending', 'confirmed'].includes(booking.status)) {
+        return NextResponse.json({ 
+          error: 'Can only reschedule pending or confirmed bookings' 
+        }, { status: 400 });
+      }
+
+      const newScheduledAt = new Date(body.scheduled_at);
+      const now = new Date();
+
+      // Validate new time is in the future
+      if (newScheduledAt <= now) {
+        return NextResponse.json({ 
+          error: 'New scheduled time must be in the future' 
+        }, { status: 400 });
+      }
+
+      // Get offering to check constraints
+      const { data: offering } = await supabase
+        .from('mentorship_offerings')
+        .select('*')
+        .eq('id', booking.offering_id)
+        .single();
+
+      if (offering) {
+        // Check minimum notice
+        const minNoticeTime = new Date(now.getTime() + (offering.min_notice_hours * 60 * 60 * 1000));
+        if (newScheduledAt < minNoticeTime) {
+          return NextResponse.json({ 
+            error: `Rescheduling requires at least ${offering.min_notice_hours} hours notice` 
+          }, { status: 400 });
+        }
+
+        // Check for conflicts
+        const sessionEnd = new Date(newScheduledAt.getTime() + (offering.duration_minutes * 60 * 1000));
+        const bufferStart = new Date(newScheduledAt.getTime() - (offering.buffer_before_minutes * 60 * 1000));
+        const bufferEnd = new Date(sessionEnd.getTime() + (offering.buffer_after_minutes * 60 * 1000));
+
+        const { data: conflicts } = await supabase
+          .from('mentorship_bookings')
+          .select('id')
+          .eq('mentor_id', booking.mentor_id)
+          .neq('id', id) // Exclude current booking
+          .in('status', ['pending', 'confirmed'])
+          .gte('scheduled_at', bufferStart.toISOString())
+          .lte('scheduled_at', bufferEnd.toISOString());
+
+        if (conflicts && conflicts.length > 0) {
+          return NextResponse.json({ error: 'This time slot is not available' }, { status: 400 });
+        }
+      }
+
+      updateData.scheduled_at = newScheduledAt.toISOString();
+      updateData.status = 'pending'; // Reset to pending for mentor approval
+    }
+
     // Handle mentee feedback (mentee only, only for completed bookings)
     if (isMentee && booking.status === 'completed') {
       if (body.mentee_rating !== undefined) {

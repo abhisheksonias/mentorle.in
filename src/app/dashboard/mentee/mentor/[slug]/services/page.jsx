@@ -5,6 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Star, Calendar, Clock, IndianRupee, MessageSquare, User, ArrowRight, Briefcase, Linkedin, ExternalLink } from "lucide-react";
+import { format } from "date-fns";
+import OfferingCard from "@/components/mentorship/OfferingCard";
 
 // Import microservices
 import MentorService from "./api/mentorService";
@@ -37,6 +44,275 @@ function NotFoundState() {
   );
 }
 
+// Mentor Offerings Component
+function MentorOfferings({ mentorId, mentorName }) {
+  const [offerings, setOfferings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchOfferings();
+  }, [mentorId]);
+
+  const fetchOfferings = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/offerings?mentor_id=${mentorId}&status=active`, { headers });
+      if (response.ok) {
+        const { data } = await response.json();
+        setOfferings(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching offerings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-gray-200">
+        <CardContent className="pt-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-20 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-gray-200">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Briefcase className="w-5 h-5" />
+          Mentorship Offerings
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {offerings.length === 0 ? (
+          <div className="text-center py-8">
+            <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No active offerings available</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {offerings.map((offering) => (
+              <OfferingCard key={offering.id} offering={offering} />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Mentor Events Component
+function MentorEvents({ mentorId }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [mentorId]);
+
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("created_by", mentorId)
+        .gte("start_date", new Date().toISOString())
+        .order("start_date", { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-gray-200">
+        <CardContent className="pt-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-20 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-gray-200">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Calendar className="w-5 h-5" />
+          Upcoming Events
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <div className="text-center py-8">
+            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No upcoming events</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {events.map((event) => (
+              <Link
+                key={event.id}
+                href={`/event/${event.id}`}
+                className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <h4 className="font-medium text-gray-900 mb-2">{event.title}</h4>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {format(new Date(event.start_date), "MMM d, yyyy")}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {format(new Date(event.start_date), "h:mm a")}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Mentor Reviews Component
+function MentorReviews({ mentorId }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [averageRating, setAverageRating] = useState(null);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [mentorId]);
+
+  const fetchReviews = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/feedback?mentor_id=${mentorId}&status=active`, { headers });
+      if (response.ok) {
+        const { data } = await response.json();
+        setReviews(data || []);
+        
+        // Calculate average rating
+        const ratings = data.filter(r => r.rating).map(r => r.rating);
+        if (ratings.length > 0) {
+          const avg = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+          setAverageRating(avg);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-gray-200">
+        <CardContent className="pt-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-20 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-gray-200">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Reviews & Feedback
+          </CardTitle>
+          {averageRating && (
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              <span className="font-semibold">{averageRating.toFixed(1)}</span>
+              <span className="text-sm text-gray-500">({reviews.length})</span>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {reviews.length === 0 ? (
+          <div className="text-center py-8">
+            <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No reviews yet</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reviews.slice(0, 5).map((review) => (
+              <div key={review.id} className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{review.user?.name || "Anonymous"}</p>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {format(new Date(review.created_at), "MMM d, yyyy")}
+                  </span>
+                </div>
+                {review.comment && (
+                  <p className="text-sm text-gray-700 mt-2">{review.comment}</p>
+                )}
+                {review.mentor_response && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs font-medium text-gray-600 mb-1">Mentor Response:</p>
+                    <p className="text-sm text-gray-700">{review.mentor_response}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MentorServicesPage() {
   const params = useParams();
   const router = useRouter();
@@ -59,18 +335,42 @@ export default function MentorServicesPage() {
       
       if (result.error || !result.mentor) {
         console.error("Error fetching mentor data:", result.error);
+        console.log("Slug used:", params.slug);
+        
+        // Try alternative: fetch by user_id if slug is actually a UUID
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.slug);
+        
+        if (isUUID) {
+          const { data: mentorByUuid, error: uuidError } = await supabase
+            .from("mentor_data")
+            .select("*")
+            .eq("user_id", params.slug)
+            .eq("status", "approved")
+            .single();
+
+          if (!uuidError && mentorByUuid) {
+            const imageUrl = await MentorService.getProfileImageUrl(mentorByUuid.profile_url);
+            setMentor(mentorByUuid);
+            setServices([]);
+            setImageUrl(imageUrl);
+            setLoading(false);
+            return;
+          }
+        }
+
         toast({
           title: "Error",
-          description: "Mentor not found",
+          description: result.error?.message || "Mentor not found",
           variant: "destructive",
         });
-        router.push("/dashboard/mentee/findmentor");
+        // Don't redirect immediately, let user see the error
+        setLoading(false);
         return;
       }
 
       setMentor(result.mentor);
-      setServices(result.services);
-      setImageUrl(result.imageUrl);
+      setServices(result.services || []);
+      setImageUrl(result.imageUrl || "");
       
       if (result.error) {
         console.error("Error fetching services:", result.error);
@@ -79,9 +379,10 @@ export default function MentorServicesPage() {
       console.error("Error fetching data:", error);
       toast({
         title: "Error",
-        description: "Failed to load mentor data",
+        description: error.message || "Failed to load mentor data",
         variant: "destructive",
       });
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -215,61 +516,70 @@ export default function MentorServicesPage() {
                 )}
                 
                 {/* Rating Display */}
-                <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-1">
-                    <svg className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="font-semibold text-gray-900">4.9</span>
+                {mentor.average_rating && (
+                  <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg mb-4">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span className="font-semibold text-gray-900">{mentor.average_rating.toFixed(1)}</span>
+                    </div>
+                    <span className="text-gray-500 text-sm">• Verified Mentor</span>
                   </div>
-                  <span className="text-gray-500 text-sm">• Verified Mentor</span>
-                </div>
+                )}
+
+                {/* Social Links */}
+                {(mentor.linkedin_url || mentor.github_url || mentor.portfolio_url) && (
+                  <div className="mb-4">
+                    <h3 className="font-semibold text-gray-900 mb-2 text-sm">Connect</h3>
+                    <div className="flex gap-2">
+                      {mentor.linkedin_url && (
+                        <a
+                          href={mentor.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <Linkedin className="w-4 h-4" />
+                        </a>
+                      )}
+                      {mentor.github_url && (
+                        <a
+                          href={mentor.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                          </svg>
+                        </a>
+                      )}
+                      {mentor.portfolio_url && (
+                        <a
+                          href={mentor.portfolio_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Services Content */}
-          <div className="lg:col-span-2">
-            {/* Coming Soon Section */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
-              <div className="bg-gradient-to-br from-purple-100 to-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4">
-                Services Coming Soon!
-              </h2>
-              <p className="text-gray-600 text-lg mb-8 max-w-lg mx-auto">
-                We're working hard to bring you amazing mentorship services. Connect with {mentor.name} and unlock your potential - coming very soon!
-              </p>
-              <div className="bg-gradient-to-r from-gray-400 to-gray-500 text-white px-8 py-4 rounded-xl font-semibold cursor-not-allowed opacity-75 inline-block">
-                Booking Coming Soon
-              </div>
-              
-              {/* Feature Preview */}
-              <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="text-center p-6 bg-gray-50 rounded-xl">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">1:1 Video Calls</h3>
-                  <p className="text-gray-600 text-sm">Personalized mentorship sessions</p>
-                </div>
-                
-                <div className="text-center p-6 bg-gray-50 rounded-xl">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Learning Resources</h3>
-                  <p className="text-gray-600 text-sm">Curated materials and guides</p>
-                </div>
-              </div>
-            </div>
+          <div className="lg:col-span-2 space-y-6">
+            {/* Offerings Section */}
+            <MentorOfferings mentorId={mentor.user_id} mentorName={mentor.name} />
+            
+            {/* Events Section */}
+            <MentorEvents mentorId={mentor.user_id} />
+            
+            {/* Reviews Section */}
+            <MentorReviews mentorId={mentor.user_id} />
           </div>
         </div>
       </div>

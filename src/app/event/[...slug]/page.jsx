@@ -140,7 +140,37 @@ export default function EventDetailPage() {
     return `${dateStr} · ${timeStr} IST`;
   };
 
+  const isRegistrationClosed = () => {
+    if (!event) return false;
+    
+    const now = new Date();
+    
+    // Check if event is completed
+    if (event.end_date) {
+      const endDate = new Date(event.end_date);
+      if (endDate < now) return true;
+    } else if (event.start_date) {
+      const startDate = new Date(event.start_date);
+      // If no end date, consider it completed if start date has passed
+      if (startDate < now) return true;
+    }
+    
+    // Check if registration deadline has passed
+    if (event.registration_deadline) {
+      const deadline = new Date(event.registration_deadline);
+      if (deadline < now) return true;
+    }
+    
+    return false;
+  };
+
   const handleRegisterClick = async () => {
+    // Check if registration is closed
+    if (isRegistrationClosed()) {
+      alert("Registrations are closed. The registration deadline has passed or the event has been completed.");
+      return;
+    }
+
     // Check if user is authenticated
     if (!user) {
       router.push('/signup');
@@ -452,31 +482,42 @@ export default function EventDetailPage() {
 
                   {/* Registration Button */}
                   <div className="pt-2">
-                    <Button 
-                      onClick={handleRegisterClick}
-                      disabled={isRegistering || isRegistered}
-                      className={`w-full h-14 text-base font-bold rounded-xl transition-all ${
-                        isRegistered 
-                          ? 'bg-green-600 hover:bg-green-700 text-white cursor-default' 
-                          : 'bg-black hover:bg-gray-800 text-white'
-                      }`}
-                    >
-                      {isRegistering ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Registering...</span>
-                        </div>
-                      ) : isRegistered ? (
-                        <div className="flex items-center justify-center gap-2">
+                    {isRegistrationClosed() ? (
+                      <div className="w-full h-14 bg-gray-100 border-2 border-gray-300 rounded-xl flex items-center justify-center">
+                        <div className="flex items-center gap-2 text-gray-600">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
-                          <span>Registered ✓</span>
+                          <span className="text-base font-bold">Registrations Closed</span>
                         </div>
-                      ) : (
-                        'Register Now'
-                      )}
-                    </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        onClick={handleRegisterClick}
+                        disabled={isRegistering || isRegistered}
+                        className={`w-full h-14 text-base font-bold rounded-xl transition-all ${
+                          isRegistered 
+                            ? 'bg-green-600 hover:bg-green-700 text-white cursor-default' 
+                            : 'bg-black hover:bg-gray-800 text-white'
+                        }`}
+                      >
+                        {isRegistering ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Registering...</span>
+                          </div>
+                        ) : isRegistered ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Registered ✓</span>
+                          </div>
+                        ) : (
+                          'Register Now'
+                        )}
+                      </Button>
+                    )}
                   </div>
 
                   {/* Thank You Message */}

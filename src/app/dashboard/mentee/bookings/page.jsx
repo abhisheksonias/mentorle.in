@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { 
   Calendar, Clock, User, Video, MessageSquare, Star,
-  X, ChevronRight
+  X, ChevronRight, CalendarDays, List, RefreshCw, 
+  IndianRupee, AlertCircle, CheckCircle
 } from "lucide-react";
 
 function MenteeBookingsContent() {
@@ -20,9 +21,13 @@ function MenteeBookingsContent() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("list"); // list, calendar
   const [feedbackBooking, setFeedbackBooking] = useState(null);
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
 
   useEffect(() => {
     fetchBookings();
@@ -279,19 +284,62 @@ function MenteeBookingsContent() {
                       </div>
                     </div>
 
-                    {booking.meeting_link && booking.status === "confirmed" && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <Video className="w-4 h-4 text-blue-600" />
-                        <a 
-                          href={booking.meeting_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          Join Meeting
-                        </a>
+                    {/* Payment Status */}
+                    {booking.amount > 0 && (
+                      <div className="mt-2 flex items-center gap-2 text-sm">
+                        {booking.payment_status === 'paid' ? (
+                          <div className="flex items-center gap-1 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Payment Confirmed</span>
+                          </div>
+                        ) : booking.payment_status === 'pending' ? (
+                          <div className="flex items-center gap-1 text-yellow-600">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Payment Pending</span>
+                            <Button
+                              size="sm"
+                              variant="link"
+                              className="h-auto p-0 text-xs"
+                              onClick={() => router.push(`/dashboard/mentee/bookings/${booking.id}/payment`)}
+                            >
+                              Complete Payment
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Payment Failed</span>
+                          </div>
+                        )}
                       </div>
                     )}
+
+                    {/* Join Session Button - Show 15 min before and during session */}
+                    {booking.meeting_link && booking.status === "confirmed" && (() => {
+                      const sessionTime = new Date(booking.scheduled_at);
+                      const sessionEnd = new Date(sessionTime.getTime() + (booking.duration_minutes * 60 * 1000));
+                      const now = new Date();
+                      const fifteenMinBefore = new Date(sessionTime.getTime() - (15 * 60 * 1000));
+                      const canJoin = now >= fifteenMinBefore && now <= sessionEnd;
+                      
+                      return canJoin ? (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => window.open(booking.meeting_link, '_blank')}
+                          >
+                            <Video className="w-4 h-4 mr-2" />
+                            Join Session Now
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                          <Video className="w-4 h-4" />
+                          <span>Join link available 15 minutes before session</span>
+                        </div>
+                      );
+                    })()}
 
                     {booking.mentee_rating && (
                       <div className="mt-3 flex items-center gap-1 text-yellow-500">
@@ -306,15 +354,31 @@ function MenteeBookingsContent() {
                   <div className="flex flex-wrap gap-2">
                     {["pending", "confirmed"].includes(booking.status) && 
                      new Date(booking.scheduled_at) > new Date() && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => handleCancel(booking.id)}
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Cancel
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => {
+                            const scheduledDate = new Date(booking.scheduled_at);
+                            setNewDate(scheduledDate.toISOString().split('T')[0]);
+                            setNewTime(format(scheduledDate, 'HH:mm'));
+                            setRescheduleBooking(booking);
+                          }}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Reschedule
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleCancel(booking.id)}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Cancel
+                        </Button>
+                      </>
                     )}
 
                     {booking.status === "completed" && !booking.mentee_rating && (
@@ -332,6 +396,113 @@ function MenteeBookingsContent() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Reschedule Session</h2>
+            <p className="text-gray-600 mb-4">
+              Select a new date and time for your session with {rescheduleBooking.mentor?.name}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Date
+                </label>
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Time
+                </label>
+                <input
+                  type="time"
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setRescheduleBooking(null);
+                  setNewDate("");
+                  setNewTime("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-black text-white hover:bg-gray-800"
+                onClick={async () => {
+                  if (!newDate || !newTime) {
+                    toast({
+                      title: "Error",
+                      description: "Please select both date and time",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  try {
+                    const { supabase } = await import("@/lib/supabase");
+                    const { data: { session } } = await supabase.auth.getSession();
+
+                    const scheduledAt = new Date(`${newDate}T${newTime}`);
+                    
+                    const response = await fetch(`/api/bookings/${rescheduleBooking.id}`, {
+                      method: "PATCH",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`
+                      },
+                      body: JSON.stringify({
+                        scheduled_at: scheduledAt.toISOString()
+                      })
+                    });
+
+                    if (response.ok) {
+                      toast({
+                        title: "Rescheduled!",
+                        description: "Your session has been rescheduled. Waiting for mentor confirmation.",
+                      });
+                      setRescheduleBooking(null);
+                      setNewDate("");
+                      setNewTime("");
+                      fetchBookings();
+                    } else {
+                      const data = await response.json();
+                      throw new Error(data.error || "Failed to reschedule");
+                    }
+                  } catch (error) {
+                    console.error("Error rescheduling:", error);
+                    toast({
+                      title: "Error",
+                      description: error.message || "Failed to reschedule booking",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Reschedule
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

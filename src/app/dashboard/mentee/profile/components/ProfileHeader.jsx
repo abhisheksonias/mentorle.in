@@ -1,6 +1,7 @@
 "use client";
 
 import { User, Edit3 } from "lucide-react";
+import Image from "next/image";
 
 export default function ProfileHeader({ profile, isEditing, onEdit }) {
   const getInitials = () => {
@@ -16,11 +17,23 @@ export default function ProfileHeader({ profile, isEditing, onEdit }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-            <span className="text-xl font-semibold text-white">
-              {getInitials()}
-            </span>
-          </div>
+          {profile?.profile_url ? (
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-300">
+              <Image
+                src={profile.profile_url}
+                alt="Profile"
+                width={64}
+                height={64}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+              <span className="text-xl font-semibold text-white">
+                {getInitials()}
+              </span>
+            </div>
+          )}
           
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

@@ -3,16 +3,20 @@ import Link from "next/link";
 import useMentorStore from "@/store/store";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Briefcase, MapPin, Lightbulb, ExternalLink, Linkedin, Share2, Check } from "lucide-react";
+import { Briefcase, MapPin, Lightbulb, ExternalLink, Linkedin, Share2, Check, Star, Heart, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { nameToSlug } from "@/lib/slugUtils";
 
-const MentorCard = ({ Industry, Name, mentorData }) => {
+const MentorCard = ({ Industry, Name, mentorData, isFavorite: propIsFavorite, onFavoriteChange }) => {
   const setMentorData = useMentorStore((state) => state.setMentorData);
   const { toast } = useToast();
   const [imageUrl, setImageUrl] = useState("");
   const [imageError, setImageError] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(propIsFavorite || false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [rating, setRating] = useState(mentorData?.average_rating || null);
+  const [priceRange, setPriceRange] = useState({ min: null, max: null });
 
   useEffect(() => {
     const fetchProfileImage = async () => {
@@ -33,6 +37,176 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
     fetchProfileImage();
   }, [mentorData?.profile_url]);
 
+  // Fetch offerings to get price range
+  useEffect(() => {
+    const fetchPriceRange = async () => {
+      if (!mentorData?.user_id) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(`/api/offerings?mentor_id=${mentorData.user_id}&status=active`, { headers });
+        if (response.ok) {
+          const { data: offerings } = await response.json();
+          if (offerings && offerings.length > 0) {
+            const prices = offerings.map(o => parseFloat(o.price) || 0).filter(p => p > 0);
+            if (prices.length > 0) {
+              setPriceRange({
+                min: Math.min(...prices),
+                max: Math.max(...prices)
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching price range:", error);
+      }
+    };
+    fetchPriceRange();
+  }, [mentorData?.user_id]);
+
+  // Check if mentor is favorited
+  useEffect(() => {
+    if (!mentorData?.user_id) {
+      setIsFavorite(false);
+      return;
+    }
+    
+    // Priority 1: Use propIsFavorite prop if provided (from parent component with favorites list)
+    // This is the most reliable source as it comes from the parent's favorites list
+    if (propIsFavorite !== undefined) {
+      setIsFavorite(propIsFavorite);
+      return;
+    }
+    
+    // Priority 2: Fallback: fetch from API if prop not provided
+    const checkFavorite = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setIsFavorite(false);
+          return;
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        };
+
+        const response = await fetch(`/api/favorites?mentee_id=${session.user.id}`, { headers });
+        if (response.ok) {
+          const result = await response.json();
+          const favorites = result.data || [];
+          const isFav = favorites.some(f => f.mentor_id === mentorData.user_id);
+          setIsFavorite(isFav);
+        } else {
+          setIsFavorite(false);
+        }
+      } catch (error) {
+        console.error("Error checking favorite:", error);
+        setIsFavorite(false);
+      }
+    };
+    checkFavorite();
+  }, [mentorData?.user_id, propIsFavorite]);
+
+  const handleFavoriteToggle = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (!mentorData?.user_id) return;
+
+    const previousFavoriteState = isFavorite;
+    
+    // Optimistic update - update UI immediately
+    setIsFavorite(!isFavorite);
+    setIsTogglingFavorite(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Revert optimistic update
+        setIsFavorite(previousFavoriteState);
+        toast({
+          title: "Please login",
+          description: "You need to be logged in to favorite mentors",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`
+      };
+
+      if (previousFavoriteState) {
+        // Remove from favorites
+        const response = await fetch(`/api/favorites?mentor_id=${mentorData.user_id}`, {
+          method: "DELETE",
+          headers
+        });
+        if (!response.ok) {
+          // Revert on error
+          setIsFavorite(previousFavoriteState);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || errorData.details || "Failed to remove favorite";
+          throw new Error(errorMessage);
+        }
+        // Verify deletion was successful
+        const result = await response.json().catch(() => ({}));
+        // Update local state immediately
+        setIsFavorite(false);
+        if (onFavoriteChange) {
+          // Callback to refresh favorites list in parent
+          onFavoriteChange();
+        }
+        toast({
+          title: "Removed",
+          description: "Mentor removed from favorites",
+        });
+      } else {
+        // Add to favorites
+        const response = await fetch("/api/favorites", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ mentor_id: mentorData.user_id })
+        });
+        if (!response.ok) {
+          // Revert on error
+          setIsFavorite(previousFavoriteState);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || errorData.details || "Failed to add favorite";
+          throw new Error(errorMessage);
+        }
+        const result = await response.json();
+        // Update local state immediately
+        setIsFavorite(true);
+        if (onFavoriteChange) {
+          // Callback to refresh favorites list in parent
+          onFavoriteChange();
+        }
+        toast({
+          title: "Added",
+          description: result.message || "Mentor added to favorites",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update favorite",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
+
   const handleClick = () => setMentorData(mentorData);
 
   const getInitials = () => {
@@ -41,13 +215,22 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
+  const getMentorName = () => {
+    // Try different name field formats
+    if (mentorData?.name) return mentorData.name;
+    if (mentorData?.first_name || mentorData?.last_name) {
+      return `${mentorData.first_name || ''} ${mentorData.last_name || ''}`.trim();
+    }
+    return Name || 'Mentor';
+  };
+
   const handleShare = async (e) => {
     e.stopPropagation();
     e.preventDefault();
     
-    const mentorName = mentorData?.name || Name;
+    const mentorName = getMentorName();
     
-    if (!mentorName) {
+    if (!mentorName || mentorName === 'Mentor') {
       toast({
         title: "Error",
         description: "Unable to share: Mentor name not found",
@@ -147,8 +330,17 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
             mentorData?.badge ? 'left-4 top-12' : 'left-4'
           }`}></div> */}
           
-          {/* Share Button */}
-          <div className="absolute top-4 right-4 z-20">
+          {/* Action Buttons */}
+          <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <button
+              onClick={handleFavoriteToggle}
+              disabled={isTogglingFavorite}
+              className={`bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg transition-all duration-200 hover:bg-white hover:scale-110 ${
+                isFavorite ? 'text-red-500' : 'text-gray-700'
+              } ${isTogglingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
+            </button>
             <button
               onClick={handleShare}
               className={`bg-white/90 backdrop-blur-sm text-gray-700 p-2 rounded-full shadow-lg transition-all duration-200 hover:bg-white hover:scale-110 ${
@@ -163,7 +355,7 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
         {/* Info Section - Absolute positioned at bottom */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/60 to-transparent text-white z-10">
           <h3 className="text-2xl font-bold mb-1">
-            {Name || "Unknown Mentor"}
+            {getMentorName()}
           </h3>
           
           <p className="text-sm text-gray-300 mb-4">
@@ -189,6 +381,31 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
             </div>
           )}
           
+          {/* Rating and Price */}
+          <div className="flex items-center gap-4 mb-3">
+            {rating && (
+              <div className="flex items-center gap-1">
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+              </div>
+            )}
+            {priceRange.min !== null && (
+              <div className="flex items-center gap-1 text-sm">
+                <IndianRupee className="h-4 w-4" />
+                <span>
+                  {priceRange.min === priceRange.max 
+                    ? `${priceRange.min}` 
+                    : `${priceRange.min} - ${priceRange.max}`}
+                </span>
+              </div>
+            )}
+            {priceRange.min === null && priceRange.max === null && (
+              <div className="flex items-center gap-1 text-sm text-gray-300">
+                <span>Free sessions available</span>
+              </div>
+            )}
+          </div>
+
           {/* Experience and View Profile Button in one row */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center">
@@ -197,13 +414,12 @@ const MentorCard = ({ Industry, Name, mentorData }) => {
             </div>
             
             <Link 
-              href={`/dashboard/mentee/mentor/${nameToSlug(mentorData?.name || Name)}/services`} 
+              href={`/dashboard/mentee/mentor/${nameToSlug(getMentorName())}/services`} 
               className="flex-grow" 
               onClick={handleClick}
             >
               <button className="w-full bg-white text-black hover:bg-gray-100 font-semibold py-2 rounded-md transition-all duration-300">
-                {/* View Services */}
-                     View Profile
+                View Profile
               </button>
             </Link>
           </div>
